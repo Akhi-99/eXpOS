@@ -1,0 +1,133 @@
+alias fun_num R1;
+//alias user_page R2;
+
+
+//GET FREE PAGE
+if(fun_num==1)then
+	[SYSTEM_STATUS_TABLE +3]=[SYSTEM_STATUS_TABLE +3]+1;
+	while([SYSTEM_STATUS_TABLE +2]==0) do
+		[PROCESS_TABLE +[SYSTEM_STATUS_TABLE+1]*16 +4]=WAIT_MEM;
+		multipush(R0,R1,R2);
+		call MOD_5;
+		multipop(R0,R1,R2);
+	endwhile;
+	
+	[SYSTEM_STATUS_TABLE +3]=[SYSTEM_STATUS_TABLE +3]-1;
+	[SYSTEM_STATUS_TABLE +2]=[SYSTEM_STATUS_TABLE+2]-1;
+	
+	alias i R3;
+	i=83;
+	while(i<128) do
+		if([MEMORY_FREE_LIST + i]==0)then
+			[MEMORY_FREE_LIST + i]=[MEMORY_FREE_LIST + i]+1;
+			R0=i;
+			break;	
+		endif;
+		i=i+1;
+	endwhile;
+	return;
+endif;
+
+//RELEASE PAGE
+if(fun_num==2) then
+	[MEMORY_FREE_LIST + R2]=[MEMORY_FREE_LIST + R2]-1;
+	if([MEMORY_FREE_LIST + R2]==0) then
+		[SYSTEM_STATUS_TABLE + 2]=[SYSTEM_STATUS_TABLE + 2]+1;
+	endif;
+	
+	//CHANGE WAIT MEM TO READY
+	if([SYSTEM_STATUS_TABLE+2]>0) then
+		alias i R4;
+		i=0;
+		while(i<16) do
+			if([PROCESS_TABLE + i*16 + 4]==WAIT_MEM) then
+				[PROCESS_TABLE + i*16 + 4]=READY;
+			endif;
+		i=i+1;
+		endwhile;
+	endif;
+	
+	return;
+endif;
+
+
+//get free block
+if(fun_num==3) then
+	alias i R5;
+	i=69;
+	while(i<=255) do
+		if([DISK_FREE_LIST + i]==0) then
+			[DISK_FREE_LIST + i]=1;
+			R0=i;
+			return;
+		endif;
+	i=i+1;
+	endwhile;
+	R0=-1;
+	return;
+endif;
+
+
+
+
+//RELEASE_BLOCK
+if(fun_num==4)then
+	[DISK_FREE_LIST + R2]=[DISK_FREE_LIST + R2]-1;
+	return;
+endif;
+
+
+//GET_CODE_PAGE
+if(fun_num==5) then
+	
+	alias i R3;
+	i=0;
+
+	//search disK_map_table
+	while(i<16) do
+		if([DISK_MAP_TABLE + i*10 +4]==R2 && [PAGE_TABLE_BASE + i*20 + 8]!=-1) then
+			R0=[PAGE_TABLE_BASE + i*20 + 8];
+			[MEMORY_FREE_LIST + [PAGE_TABLE_BASE + i*20 + 8]]=[MEMORY_FREE_LIST + [PAGE_TABLE_BASE + i*20 + 8]]+1;
+			return;
+		endif;
+		if([DISK_MAP_TABLE + i*10 +5]==R2 && [PAGE_TABLE_BASE + i*20 + 10]!=-1) then
+                        R0=[PAGE_TABLE_BASE + i*20 + 10];
+			[MEMORY_FREE_LIST + [PAGE_TABLE_BASE + i*20 + 10]]=[MEMORY_FREE_LIST + [PAGE_TABLE_BASE + i*20 + 10]]+1;
+                        return;
+                endif;
+		if([DISK_MAP_TABLE + i*10 +6]==R2 && [PAGE_TABLE_BASE + i*20 + 12]!=-1) then
+                        R0=[PAGE_TABLE_BASE + i*20 + 12];
+			[MEMORY_FREE_LIST + [PAGE_TABLE_BASE + i*20 + 12]]=[MEMORY_FREE_LIST + [PAGE_TABLE_BASE + i*20 + 12]]+1;
+                        return;
+                endif;
+		if([DISK_MAP_TABLE + i*10 +7]==R2 && [PAGE_TABLE_BASE + i*20 + 14]!=-1) then
+                        R0=[PAGE_TABLE_BASE + i*20 + 14];
+			[MEMORY_FREE_LIST + [PAGE_TABLE_BASE + i*20 + 14]]=[MEMORY_FREE_LIST + [PAGE_TABLE_BASE + i*20 + 14]]+1;
+                        return;
+                endif;
+	i=i+1;
+	endwhile;
+
+
+	multipush(R0,R1,R2,R3);
+	R1=1;
+	call MOD_2;
+	alias page_no R4;
+	R4=R0;
+	multipop(R0,R1,R2,R3);
+	
+	multipush(R0,R1,R2,R3,R4);
+	R1=2;
+	R5=R2;
+	R2=[SYSTEM_STATUS_TABLE+1];
+	R3=R4;
+	R4=R5;	
+	call MOD_4;
+	multipop(R0,R1,R2,R3,R4);	
+	R0=R4;
+	return;
+endif;
+
+
+return;	
+

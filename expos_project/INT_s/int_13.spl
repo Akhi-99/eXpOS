@@ -1,0 +1,59 @@
+alias userSP R1;
+userSP = SP;
+[PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1]*16) + 13] = SP;
+alias sysCallNum R2;
+sysCallNum = [([PTBR + 2*((userSP - 5) / 512)]*512) + ((userSP - 5) % 512)];
+alias retValAdd R3;
+retValAdd = ([PTBR + 2*((userSP - 1) / 512)]*512) + ((userSP - 1) % 512);
+SP = [PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1]*16) + 11]*512 - 1;
+if(sysCallNum == 17) then
+	[PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1]*16) + 9] = 17;
+	R4 = [PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1]*16) + 11]*512 + 496;
+	R5 = 0;
+	while(R5 < 8) do
+		if([R4 + (2*R5)] == -1) then
+			break;
+		endif;
+		R5 = R5 + 1;
+	endwhile;
+	if(R5 == 8) then
+		[retValAdd] = -1;
+	else
+		[R4 + (2*R5)] = 1;
+		multipush(R1,R2,R3,R4,R5);
+		R1 = 6;
+		R2 = [SYSTEM_STATUS_TABLE + 1];
+		call MOD_0;
+		multipop(R1,R2,R3,R4,R5);
+		if(R0 == -1) then
+			[R4 + (2*R5)] = -1;
+			[retValAdd] = -2;
+		else
+			[R4 + (2*R5) + 1] = R0;
+			[retValAdd] = R5;	
+		endif;
+	endif;
+	SP = userSP;
+	[PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1]*16) + 9] = 0;
+	ireturn;
+endif;
+if(sysCallNum == 18) then
+	R6 = [([PTBR + 2*((userSP - 4) / 512)]*512) + ((userSP - 4) % 512)];
+	[PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1]*16) + 9] = 18;
+	R4 = [PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1]*16) + 11]*512 + 496;
+	if((R6 < 0) || (R6 > 7) || ([R4 + (2*R6)] != 1)) then
+		[retValAdd] = -1;
+	else
+		multipush(R1,R2,R3,R4,R5,R6);
+		R1 = 7;
+		R2 = [SYSTEM_STATUS_TABLE + 1];
+		R3 = [R4 + (2*R6) + 1];
+		call MOD_0;
+		multipop(R1,R2,R3,R4,R5,R6);
+		[R4 + (2*R6)] = -1;
+		[retValAdd] = 0;	
+	endif;
+	SP = userSP;
+	[PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1]*16) + 9] = 0;
+	ireturn;
+endif;

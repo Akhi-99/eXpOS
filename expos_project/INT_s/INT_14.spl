@@ -1,0 +1,86 @@
+[PROCESS_TABLE + [SYSTEM_STATUS_TABLE+1]*16 + 13]=SP;
+alias user_sp R0;
+user_sp=SP;
+SP=[PROCESS_TABLE+ [SYSTEM_STATUS_TABLE+1]*16 +11]*512-1;
+
+alias sys_call R1;
+sys_call = [[PTBR + 2*(user_sp-5)/512]*512 + (user_sp-5)%512];
+
+//SEM_LOCK
+
+if(sys_call==19) then
+	[PROCESS_TABLE +[SYSTEM_STATUS_TABLE+1]*16 + 9]=19;
+	alias sem_desc R2;
+	alias user_page R3;
+	user_page = [PROCESS_TABLE+ [SYSTEM_STATUS_TABLE+1]*16  +11]*512 +496;
+	sem_desc =[[PTBR + 2*(user_sp-4)/512]*512 + (user_sp-4)%512];
+	if(sem_desc <0 ||sem_desc>7 ||[user_page+ 2*sem_desc]==-1) then
+		[[PTBR + 2*(user_sp-1)/512]*512 + (user_sp-1)%512]=-1;
+		[PROCESS_TABLE +[SYSTEM_STATUS_TABLE+1]*16 + 9]=0;
+		SP=[PROCESS_TABLE +[SYSTEM_STATUS_TABLE+1]*16 +13];
+		ireturn;
+	endif;
+	
+	while([SEMAPHORE_TABLE+ 4*[user_page+ 2*sem_desc +1]]!=[SYSTEM_STATUS_TABLE+1] && [SEMAPHORE_TABLE+ 4*[user_page+ 2*sem_desc +1]]!=-1) do
+		[PROCESS_TABLE + [SYSTEM_STATUS_TABLE+1]*16 +4]=WAIT_SEMAPHORE;
+		[PROCESS_TABLE + [SYSTEM_STATUS_TABLE+1]*16 +5]=[user_page+ 2*sem_desc + 1];
+		multipush(R0,R1,R2,R3);
+		call MOD_5;
+		multipop(R0,R1,R2,R3);
+	endwhile;
+	
+	//locking now
+	[SEMAPHORE_TABLE+ 4*[user_page+ 2*sem_desc+1]]= [SYSTEM_STATUS_TABLE+1];
+	[[PTBR + 2*(user_sp-1)/512]*512 + (user_sp-1)%512]=0;
+        [PROCESS_TABLE + [SYSTEM_STATUS_TABLE+1]*16 + 9]=0;
+        SP=[PROCESS_TABLE+ [SYSTEM_STATUS_TABLE+1]*16 +13];
+        ireturn;
+endif;
+
+
+
+//SEM_UNLOCK
+if(sys_call==20) then
+	[PROCESS_TABLE +[SYSTEM_STATUS_TABLE+1]*16 + 9]=20;
+        alias sem_desc R2;
+        alias user_page R3;
+        user_page = [PROCESS_TABLE+ [SYSTEM_STATUS_TABLE+1]*16 +11]*512 + 496;
+        sem_desc =[[PTBR + 2*(user_sp-4)/512]*512 + (user_sp-4)%512];
+        if(sem_desc <0 ||sem_desc>7 ||[user_page+ 2*sem_desc]==-1) then
+                [[PTBR + 2*(user_sp-1)/512]*512 + (user_sp-1)%512]=-1;
+                [PROCESS_TABLE + [SYSTEM_STATUS_TABLE+1]*16 + 9]=0;
+                SP=[PROCESS_TABLE+[ SYSTEM_STATUS_TABLE+1]*16 +13];
+                ireturn;
+        endif;
+	
+	if([SEMAPHORE_TABLE+ 4*[user_page+ 2*sem_desc+ 1]]!=-1) then
+		if([SEMAPHORE_TABLE+ 4*[user_page+ 2*sem_desc +1]]!=[SYSTEM_STATUS_TABLE+1]) then
+			[[PTBR + 2*(user_sp-1)/512]*512 + (user_sp-1)%512]=-2;
+                	[PROCESS_TABLE + [SYSTEM_STATUS_TABLE+1]*16 + 9]=0;
+               		SP=[PROCESS_TABLE+ [SYSTEM_STATUS_TABLE+1]*16 +13];
+              		ireturn;
+      		 endif;
+    
+		[SEMAPHORE_TABLE+ 4*[user_page+ 2*sem_desc +1]]=-1;
+
+		alias i R4;
+		i=1;
+		while(i<16) do
+			if([PROCESS_TABLE + i*16 +4]==WAIT_SEMAPHORE && [PROCESS_TABLE +i*16 +5]==[user_page+ 2*sem_desc +1]) then
+				[PROCESS_TABLE + i*16 +4]=READY;
+			endif;
+		i=i+1;
+		endwhile;
+	endif;
+	[[PTBR + 2*(user_sp-1)/512]*512 + (user_sp-1)%512]=0;
+    [PROCESS_TABLE +[SYSTEM_STATUS_TABLE+1]*16 + 9]=0;
+    SP=[PROCESS_TABLE +[SYSTEM_STATUS_TABLE+1]*16 +13];
+    ireturn;
+endif;
+
+SP=[PROCESS_TABLE +[SYSTEM_STATUS_TABLE+1]*16 +13];
+ireturn;
+
+	
+	
+		

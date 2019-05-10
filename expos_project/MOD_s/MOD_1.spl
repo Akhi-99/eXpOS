@@ -1,0 +1,218 @@
+alias fun_num R1;
+alias curr_pid R2;
+alias user_page R3;
+
+alias proc_table R14;
+proc_table = PROCESS_TABLE;
+
+//GET_PCB_ENTRY
+if(fun_num==1) then
+	alias i R4;
+	i=0;
+	while(i<16) do
+		if([proc_table + i*16 + 4]==TERMINATED) then
+			R0=i;
+			[proc_table + i*16 + 1]=i;
+			[proc_table + i*16 + 4]=ALLOCATED;
+			[proc_table + i*16 + 14]=PAGE_TABLE_BASE + i*20 ;
+			[proc_table + i*16 + 15]=10;
+			return;
+		endif;
+	i=i+1;
+	endwhile;
+	R0=-1;
+	return;
+endif;
+
+
+//FREE USER AREA PAGE
+if(fun_num==2)then
+	user_page = [proc_table + curr_pid*16 +11];
+
+	alias i R4;
+	i=0;
+	alias u R5;
+	u=user_page*512 + 496;
+	while(i<16) do
+	 if([u+ i]!=-1) then
+	 	if([u+i]==0) then //FILE
+	 		multipush(R0,R1,R2,R3,R4,R5);
+			R1=4;
+			R2=curr_pid;
+			R3=[u +i+1];
+			call MOD_3;
+			multipop(R0,R1,R2,R3,R4,R5);
+		endif;
+
+		if([u+ i]==1) then //SEMAPHORE
+			multipush(R0,R1,R2,R3,R4,R5);
+			R1=7;
+			R2=curr_pid;
+			R3=[u +i+1];
+			call MOD_0;
+			multipop(R0,R1,R2,R3,R4,R5);
+		endif;
+		[u + i]=-1; //INVALIDATE
+		
+	endif;
+	i=i+2;
+	endwhile;	
+	
+	multipush(R0,R1,R2,R3);
+	fun_num = 2;
+	R2= user_page;
+	call MOD_2;
+	multipop(R0,R1,R2,R3);
+	
+	return;
+endif;
+
+
+//EXIT PROCESS
+if(fun_num==3) then
+	alias req_pid R4;
+	req_pid=R2;
+	multipush(R0,R1,R2,R3,R4);
+	R2= req_pid;
+	fun_num = 4;
+	call MOD_1;
+	 multipop(R0,R1,R2,R3,R4);
+
+	multipush(R0,R1,R2,R3,R4);	
+		fun_num=2;
+		R2=req_pid;
+        call MOD_1;
+    multipop(R0,R1,R2,R3,R4);
+	
+	if([proc_table + [SYSTEM_STATUS_TABLE+1]*16 + 9]!=9) then	
+		alias i R5;
+		i=0;
+		while(i<16) do
+			if(([proc_table+ i*16 + 4]==WAIT_PROCESS) && ([proc_table+ i*16 + 5]==curr_pid)) then
+				[proc_table+ i*16 + 4]=READY;
+			endif;
+			if([proc_table + i*16 + 2]==curr_pid) then
+				[proc_table + i*16 + 2]=-1;
+			endif;
+		i=i+1;
+		endwhile;
+	endif;
+	
+	[proc_table + req_pid*16 + 4]=TERMINATED;
+	return;
+endif;
+
+//FREE PAGETABLE
+if(fun_num==4)then
+	[PTBR + 0]=-1;
+	[PTBR + 1]="0000";
+	[PTBR + 2]=-1;
+        [PTBR + 3]="0000";
+	
+	alias i R4;
+	i=4;
+	while(i<19) do
+		if([PTBR+ i]!=-1)then
+			multipush(R0,R1,R2,R3,R4);
+			fun_num=2;
+			R2=[PTBR+i];
+			call MOD_2;
+			multipop(R0,R1,R2,R3,R4);
+			[PTBR+i]=-1;
+			[PTBR+i+1]="0000";
+		endif;
+		i=i+2;
+	endwhile;
+	
+	//RELEASE_BLOCKS
+	//heap
+	if([DISK_MAP_TABLE + R2*10 + 2]!=-1)then
+		multipush(R0,R1,R2,R3,R4);
+		R1=4;
+		R3=R2;			//pid
+		R2=[DISK_MAP_TABLE + R2*10 + 2];  //block
+		call MOD_2;
+		multipop(R0,R1,R2,R3,R4);
+	endif;
+	
+	if([DISK_MAP_TABLE + R2*10 + 3]!=-1)then
+                multipush(R0,R1,R2,R3,R4);
+                R1=4;
+                R3=R2;
+                R2=[DISK_MAP_TABLE + R2*10 + 3];
+                call MOD_2;
+                multipop(R0,R1,R2,R3,R4);
+        endif;
+	
+	//stack	
+	if([DISK_MAP_TABLE + R2*10 + 8]!=-1)then
+                multipush(R0,R1,R2,R3,R4);
+                R1=4;
+                R3=R2;
+                R2=[DISK_MAP_TABLE + R2*10 + 8];
+                call MOD_2;
+                multipop(R0,R1,R2,R3,R4);
+        endif;
+	
+	if([DISK_MAP_TABLE + R2*10 + 9]!=-1)then
+                multipush(R0,R1,R2,R3,R4);
+                R1=4;
+                R3=R2;
+                R2=[DISK_MAP_TABLE + R2*10 + 9];
+                call MOD_2;
+                multipop(R0,R1,R2,R3,R4);
+        endif;
+	
+	i=0;
+	while(i<10) do
+		[DISK_MAP_TABLE + R2*10 + i]=-1;
+	i=i+1;
+	endwhile;
+	
+	return;
+endif;	
+
+
+if(fun_num==5) then		//kill all
+	alias i R4;
+	i=0;
+	while(i<60) do
+		if([INODE_TABLE + i*16 + 1]!=-1) then
+			backup;
+			R1=4;							//acquire inode
+			R2=curr_pid;			
+			R3=i;
+			call MOD_0;
+			restore;
+		endif;
+	i=i+1;
+	endwhile;
+
+	i=2;
+	while(i<16) do
+		if([proc_table + i*16 +1]!=curr_pid && [proc_table + i*16 +4]!=TERMINATED) then
+			backup;
+			R1=3;
+			R2=curr_pid;		//exit
+			call MOD_1;
+			restore;
+		endif;
+	i=i+1;
+	endwhile;
+
+	i=0;
+	while(i<60) do
+		if([INODE_TABLE + i*16 + 1]!=-1) then
+			backup;
+			R1=5;							//release inode
+			R2=curr_pid;	
+			R3=i;
+			call MOD_0;
+			restore;
+		endif;
+	i=i+1;
+	endwhile;
+return;
+endif;
+
+return;

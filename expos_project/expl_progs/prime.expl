@@ -1,0 +1,25 @@
+int main()
+{
+	decl
+		int n,i,c;
+	enddecl
+	begin
+		n=2;
+		while(n<=100) do
+			i=2;c=0;
+			while(i<=(n/2)) do
+                        	if((n%i)==0) then
+					c=c+1;
+					break;
+				endif;
+			i=i+1;
+			endwhile;
+
+			if(c==0) then
+				write(n);
+			endif;
+		n=n+1;
+		endwhile;
+		return 0;
+	end
+}

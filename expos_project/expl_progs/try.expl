@@ -1,0 +1,12 @@
+decl
+	str x;
+enddecl
+
+int main()
+{
+	begin
+		x="hi ra";
+		write(x);
+		return 0;
+	end
+}

@@ -1,0 +1,229 @@
+alias pte R10;
+pte =PROCESS_TABLE + [SYSTEM_STATUS_TABLE+1]*16 ;
+
+[pte + 13]=SP;
+alias user_sp R0;
+user_sp =SP;
+SP = [pte + 11]*512 -1;
+
+alias sys_call R9;
+sys_call = [[PTBR + 2*(user_sp-5)/512]*512 + (user_sp-5)%512];
+
+alias ret_val R8;
+ret_val = [PTBR + 2*(user_sp-1)/512]*512 + (user_sp-1)%512;
+
+[pte + 9]=sys_call;
+
+//OPEN SYSTEM CALL
+if(sys_call==2) then
+	
+	alias file_name R7;
+	file_name = [[PTBR + 2*(user_sp-4)/512]*512 + (user_sp-4)%512];
+
+	alias i R1;
+	i=0;
+	alias ppr R2;
+	ppr = [pte + 11]*512 +496;
+	while(i<8) do   //FINDING PPR INDEX
+		if([ppr + 2*i]==-1) then
+			break;
+		endif;
+	i=i+1;
+	endwhile;
+
+	if(i==8) then  //NO PPR INDEX
+		[ret_val]=-3;
+		[pte +9]=0;
+		SP=user_sp;
+		ireturn;
+	endif;
+
+//	print "going_to_open_fun";
+
+	//OPEN FUNCTION IN MOD_3
+	multipush(R0,R1,R2,R3,R4,R5,R6,R7,R8,R9,R10);
+	R1=3;
+	R2=[SYSTEM_STATUS_TABLE+1];
+	R3=file_name;
+	call MOD_3;
+	R15=R0;
+	multipop(R0,R1,R2,R3,R4,R5,R6,R7,R8,R9,R10);
+
+//	print "came after open";
+
+	if(R15==-1 || R15==-2) then
+		[ret_val]=R15;
+		[pte +9]=0;
+		SP=user_sp;
+		ireturn;
+	endif;
+
+	//print "okkk";
+
+	[ppr + 2*i]=0;   //SET UP PPR ENTRY
+	[ppr + 2*i + 1]=R15;
+
+//	print i;
+
+	[ret_val]=i;
+
+//	print [ret_val];
+
+	[pte +9]=0;
+	SP=user_sp;
+	ireturn;
+endif;
+
+//CLOSE SYSTEM CALL
+if(sys_call==3) then
+	
+		alias file_desc R1;
+		file_desc = [[PTBR + 2*(user_sp-4)/512]*512 + (user_sp-4)%512];
+
+		if(file_desc <0 || file_desc>7) then //FILE DESC NOT VLAID
+			[ret_val]=-1;
+			[pte+9]=0;
+			SP=user_sp;
+			ireturn;
+		endif;
+
+		alias ppr R2;
+		ppr = [pte + 11]*512 +496;
+
+		if([ppr + 2*file_desc]!=0) then // PPR ENTRY INVALID
+			[ret_val]=-1;
+			[pte+9]=0;
+			SP=user_sp;
+			ireturn;
+		endif;
+		
+		alias oft_index R3;
+		oft_index = [ppr + 2*file_desc +1];
+
+		//CLOSE FUN (mod_3)
+		multipush(R0,R1,R2,R3,R4,R5,R6,R7,R8,R9,R10);
+		R1=4;
+		R2=[SYSTEM_STATUS_TABLE+1];
+		R3=oft_index;
+		call MOD_3;
+		R15 = R0;
+		multipop(R0,R1,R2,R3,R4,R5,R6,R7,R8,R9,R10);
+
+		[ppr + 2*file_desc]=-1;
+
+		[ret_val]=0;
+		[pte+9]=0;
+		SP=user_sp;
+		ireturn;
+endif;
+
+//seek system call
+
+if(sys_call==6) then
+	
+	alias file_desc R1;
+	alias off_set R2;
+	file_desc = [[PTBR + 2*(user_sp-4)/512]*512 + (user_sp-4)%512];
+	off_set = [[PTBR + 2*(user_sp-3)/512]*512 + (user_sp-3)%512];
+
+	if(file_desc <0 || file_desc>7) then //FILE DESC NOT VLAID
+			[ret_val]=-1;
+			[pte+9]=0;
+			SP=user_sp;
+			ireturn;
+	endif;
+
+	alias ppr R3;
+	ppr = [pte + 11]*512 +496;
+
+	if([ppr + 2*file_desc]!=0) then // PPR ENTRY INVALID
+			[ret_val]=-1;
+			[pte+9]=0;
+			SP=user_sp;
+			ireturn;
+	endif;
+
+	alias oft_i R4;
+	alias inod_i R5;
+
+	oft_i = [ppr + 2*file_desc + 1];
+	inod_i = [OPEN_FILE_TABLE + 4*oft_i];
+
+	multipush(R0,R1,R2,R3,R4,R5,R6,R7,R8,R9,R10);
+	R1=4;
+	R2=[SYSTEM_STATUS_TABLE+1];				//acquire inode
+	R3=inod_i;
+	call MOD_0;
+	R15=R0;
+	multipop(R0,R1,R2,R3,R4,R5,R6,R7,R8,R9,R10);
+
+	if(R15==-1) then 		//acquire inode fails
+		[pte+9]=0;
+		[ret_val]=-1;
+		SP=user_sp;
+		ireturn;
+	endif;
+
+	alias l_seek R6;
+	l_seek = [OPEN_FILE_TABLE + 4*oft_i +2];
+
+	//checking validity of given offset
+
+	alias file_size R7;
+	file_size = [INODE_TABLE + 16*inod_i + 2];
+
+	if(inod_i==0) then
+		file_size = 480;
+	endif;
+
+	if((l_seek + off_set) <0) then
+		multipush(R0,R1,R2,R3,R4,R5,R6,R7,R8,R9,R10);
+		R1=5;
+		R2=[SYSTEM_STATUS_TABLE+1];				//release inode
+		R3=inod_i;
+		call MOD_0;
+		R15=R0;
+		multipop(R0,R1,R2,R3,R4,R5,R6,R7,R8,R9,R10);
+
+		[pte+9]=0;
+		[ret_val]=-2;
+		SP=user_sp;
+		ireturn;
+	endif;
+
+	if(off_set ==0) then
+		[OPEN_FILE_TABLE + 4*oft_i +2]=0;
+	else 
+		if((l_seek + off_set) > file_size) then
+			[OPEN_FILE_TABLE + 4*oft_i +2]=file_size;
+		else		
+			[OPEN_FILE_TABLE + 4*oft_i +2]=[OPEN_FILE_TABLE + 4*oft_i +2] + off_set;
+		endif;
+	endif;
+
+		multipush(R0,R1,R2,R3,R4,R5,R6,R7,R8,R9,R10);
+		R1=5;
+		R2=[SYSTEM_STATUS_TABLE+1];				//release inode
+		R3=inod_i;
+		call MOD_0;
+		R15=R0;
+		multipop(R0,R1,R2,R3,R4,R5,R6,R7,R8,R9,R10);
+
+		[pte+9]=0;
+		[ret_val]=0;
+		SP=user_sp;
+		ireturn;
+endif;
+
+
+
+
+[ret_val]=0;
+[pte +9]=0;
+ireturn;
+
+
+
+
+
+

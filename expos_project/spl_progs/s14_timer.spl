@@ -1,0 +1,40 @@
+[PROCESS_TABLE + [SYSTEM_STATUS_TABLE +1]*16 + 13]= SP;
+SP= [PROCESS_TABLE + [SYSTEM_STATUS_TABLE +1]*16 + 11]*512 -1;
+backup;
+
+alias currentPID R0;
+currentPID = [SYSTEM_STATUS_TABLE+1];
+
+//if(currentPID!=0) then
+//	if([SYSTEM_STATUS_TABLE+2] < MEM_LOW) then
+//		call swap_out();
+//	else if ([SYSTEM_STATUS_TABLE+2] > MEM_HIGH) then
+//		call swap_in();
+//	     endif;
+//	endif;
+//endif;
+	
+
+alias process_table_entry R1;
+process_table_entry = PROCESS_TABLE + currentPID *16;
+
+//[process_table_entry + 12] = SP%512;
+//[process_table_entry + 14] = PTBR;
+//[process_table_entry + 15] = PTLR;
+
+[process_table_entry + 4] = READY;
+alias i R2;
+i=0;
+while(i<=15) do
+	[PROCESS_TABLE + 16*i + 0]=[PROCESS_TABLE + 16*i + 0]+1;
+	i=i+1;
+endwhile;
+	
+
+call MOD_5;
+
+
+restore;
+SP = [PROCESS_TABLE +[SYSTEM_STATUS_TABLE+1]*16 +13];
+[PROCESS_TABLE + [SYSTEM_STATUS_TABLE +1]*16 + 9]=0;
+ireturn;

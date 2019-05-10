@@ -1,0 +1,22 @@
+int main()
+{
+	decl
+		int a,b,t,g;
+		str x;
+	enddecl
+	begin
+		read(a);
+		read(b);
+		x="gcd(a,b):";
+		write(x);
+		while(a!=b) do
+			if(a>b) then
+			a=a-b;
+			else
+			b=b-a;
+			endif;
+		endwhile;
+		write(a);
+		return 0;
+	end
+}

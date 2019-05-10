@@ -1,0 +1,21 @@
+int main()
+{
+	decl
+		int a,b,c;
+		str x,y;
+	enddecl
+	begin
+		write("before_fork");
+		a = exposcall("Fork");
+		if(a==0) then
+			write("child");
+			b=exposcall("Exec","odd.xsm");
+		endif;
+		if(a!=0) then
+			write("parent");
+			b=exposcall("Exec","even.xsm");
+		endif;
+		write("after_fork");
+		return 0;
+	end
+}

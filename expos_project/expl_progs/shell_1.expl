@@ -1,0 +1,12 @@
+int main()
+{
+	decl
+		int t;
+		str x;
+	enddecl
+	begin
+		read(x);
+		t= exposcall("Exec",x);
+		return 0;
+	end
+}

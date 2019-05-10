@@ -1,0 +1,10 @@
+alias i R0;
+i=1;
+alias sum R1;
+sum=0;
+while(i<=20) do
+ sum = sum+(i*i);
+ i=i+1;
+ endwhile;
+print sum;
+halt;

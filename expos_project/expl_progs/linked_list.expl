@@ -1,0 +1,51 @@
+type
+linkedlist{
+	int data;
+	linkedlist next;
+}
+endtype
+
+decl
+	linkedlist head;
+enddecl
+
+int main()
+{
+	decl
+		int n,x,t;
+		str s;
+		linkedlist p,q;
+	enddecl
+	begin
+		t=initialize();
+		head = null;
+		
+		read(n);
+		while(n>0) do
+			p=alloc();
+			read(x);
+			p.data=x;
+			p.next=null;
+			
+			if(head==null) then
+				head=p;
+				q=p;
+			else
+				q.next=p;
+				q=q.next;
+			endif;
+		n=n-1;
+		endwhile;
+	
+		p=head;
+		while(p!=null) do
+			write(p.data);
+			if(p.next!=null) then
+			write("->");
+			endif;
+			p=p.next;
+		endwhile;
+				
+		return 0;
+	end
+}

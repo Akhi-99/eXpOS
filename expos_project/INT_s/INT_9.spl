@@ -1,0 +1,160 @@
+[PROCESS_TABLE + [SYSTEM_STATUS_TABLE+1]*16 + 9]=9;
+alias user_sp R0;
+user_sp = SP;
+
+[PROCESS_TABLE + [SYSTEM_STATUS_TABLE+1]*16 +13]=SP;
+SP=[PROCESS_TABLE + [SYSTEM_STATUS_TABLE+1]*16 + 11]*512 -1;
+
+alias file_name R1;
+file_name=  [[PTBR + 2*(user_sp-4)/512]*512 + (user_sp-4)%512];
+
+alias inode R2;
+inode= INODE_TABLE;
+
+alias i R3;
+i=0;
+alias flag R4;
+flag=0;
+
+alias index R5;
+index=0;
+
+while(i<60) do
+	if([inode + i*16 + 0]==3 && [inode+ 16*i + 1]==file_name) then
+		flag=1;
+		index=i;
+		break;
+	endif;
+	i=i+1;
+endwhile;
+
+if(flag==0)then
+	[[PTBR + 2*(user_sp-1)/512]*512 + (user_sp-1)%512]=-1;
+	[PROCESS_TABLE + [SYSTEM_STATUS_TABLE+1]*16 + 9]=0;
+	SP=[PROCESS_TABLE + [SYSTEM_STATUS_TABLE+1]*16 +13];
+	ireturn;
+endif;
+
+multipush(R0,R1,R2,R3,R4,R5);
+
+R1=3;
+R2=[SYSTEM_STATUS_TABLE +1];
+
+call MOD_1;
+multipop(R0,R1,R2,R3,R4,R5);
+
+alias user_page R6;
+user_page = [PROCESS_TABLE + [SYSTEM_STATUS_TABLE+1]*16 +11];
+
+[MEMORY_FREE_LIST + user_page]=[MEMORY_FREE_LIST + user_page]+1;
+[SYSTEM_STATUS_TABLE + 2]=[SYSTEM_STATUS_TABLE + 2]-1;
+
+SP = user_page*512-1;
+
+[PROCESS_TABLE + [SYSTEM_STATUS_TABLE+1]*16 + 4]= RUNNING;
+[PROCESS_TABLE + [SYSTEM_STATUS_TABLE+1]*16 + 7]= index;
+
+
+[PTBR+ 0]=63;
+[PTBR+ 1]="0100";
+[PTBR+ 2]=64;
+[PTBR+ 3]="0100";
+
+//HEAP
+multipush(R0,R1,R2,R3,R4,R5,R6);
+//R1=1;
+//R2=[SYSTEM_STATUS_TABLE+1];
+//call MOD_2;
+[PTBR+ 4]=-1;
+[PTBR+ 5]="0000";
+
+//R1=1;
+//call MOD_2;
+[PTBR+ 6]=-1;
+[PTBR+ 7]="0000";
+
+//stack
+R1=1;
+call MOD_2;
+[PTBR+ 16]=R0;
+[PTBR+ 17]="0110";
+
+R1=1;
+call MOD_2;
+[PTBR+ 18]=R0;
+[PTBR+ 19]="0110";
+
+//code
+alias j R7;
+j=8;
+alias k R8;
+k=8;
+while(k<9) do
+if([INODE_TABLE+ index*16 +k]!=-1) then
+
+	R1=5;
+	R2=[INODE_TABLE+ index*16 +k];
+	multipush(R7,R8);
+	call MOD_2;
+	multipop(R7,R8);
+        [PTBR+ j]=R0;
+        [PTBR+ j+1]="0100";
+	
+	//R1=1;
+	//multipush(R7,R8);
+	//call MOD_2;
+	//multipop(R7,R8);
+	//[PTBR+ j]=R0;
+	//[PTBR+ j+1]="0100";
+	//loadi([PTBR+ j],[INODE_TABLE+ index*16 +k]);
+
+	//multipush(R0,R1,R2,R3,R4,R5,R6,R7,R8);
+	//R1=2;
+	//R2=[SYSTEM_STATUS_TABLE+1];
+	//R3=[PTBR+ j];
+	//R4=[INODE_TABLE+ index*16 +k];
+	//call MOD_4;
+	//multipop(R0,R1,R2,R3,R4,R5,R6,R7,R8);
+	
+	j=j+2;
+
+endif;
+k=k+1;
+endwhile;
+multipop(R0,R1,R2,R3,R4,R5,R6);
+
+//CODE_2_3_4
+[PTBR+10]=-1;
+[PTBR+11]="0000";
+[PTBR+12]=-1;
+[PTBR+13]="0000";
+[PTBR+14]=-1;
+[PTBR+15]="0000";
+
+[[PTBR+ 16]*512]=[[PTBR+ 8]*512 +1];
+
+//PER_PROCESS_DISK_MAP_TABLE
+[DISK_MAP_TABLE + [SYSTEM_STATUS_TABLE+1]*10 + 0]=-1;
+[DISK_MAP_TABLE + [SYSTEM_STATUS_TABLE+1]*10 + 1]=-1;
+[DISK_MAP_TABLE + [SYSTEM_STATUS_TABLE+1]*10 + 2]=-1;
+[DISK_MAP_TABLE + [SYSTEM_STATUS_TABLE+1]*10 + 3]=-1;
+[DISK_MAP_TABLE + [SYSTEM_STATUS_TABLE+1]*10 + 4]=[INODE_TABLE + index*16 +8];
+[DISK_MAP_TABLE + [SYSTEM_STATUS_TABLE+1]*10 + 5]=[INODE_TABLE + index*16 +9];
+[DISK_MAP_TABLE + [SYSTEM_STATUS_TABLE+1]*10 + 6]=[INODE_TABLE + index*16 +10];
+[DISK_MAP_TABLE + [SYSTEM_STATUS_TABLE+1]*10 + 7]=[INODE_TABLE + index*16 +11];
+[DISK_MAP_TABLE + [SYSTEM_STATUS_TABLE+1]*10 + 8]=-1;
+[DISK_MAP_TABLE + [SYSTEM_STATUS_TABLE+1]*10 + 9]=-1;
+
+
+//PER_PROCESS_RESOURCE_TABLE
+i=0;
+while(i<=14) do
+	[[PROCESS_TABLE + [SYSTEM_STATUS_TABLE+1]*16 +11]*512 +i] =-1;
+	i=i+2;
+endwhile;
+
+
+
+[PROCESS_TABLE + [SYSTEM_STATUS_TABLE+1]*16 + 9]=0;
+SP=8*512;
+ireturn;

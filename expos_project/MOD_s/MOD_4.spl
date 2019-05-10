@@ -1,0 +1,92 @@
+alias fun_no R1;
+alias curr_pid  R2;
+
+//DISK STORE
+if(fun_no==1) then
+	alias page_num R3;
+	alias block_num R4;
+							//ACQUIRE DISK
+	multipush(R0,R1,R2,R3,R4);
+	R1=3;
+	R2=[SYSTEM_STATUS_TABLE+1];
+	call MOD_0;
+	multipop(R0,R1,R2,R3,R4);
+								//SETUP DISK STATUS TABLE
+	[DISK_STATUS_TABLE +1]=1;
+	[DISK_STATUS_TABLE +2]=page_num;
+	[DISK_STATUS_TABLE +3]=block_num;
+
+	store(page_num,block_num);
+	[PROCESS_TABLE + [SYSTEM_STATUS_TABLE+1]*16 + 4]=WAIT_DISK;
+
+	multipush(R0,R1,R2,R3,R4);
+	call MOD_5;
+	multipop(R0,R1,R2,R3,R4);
+	return;
+endif;
+
+
+//DISK LOAD
+if(fun_no==2) then
+	multipush(R0,R1,R2,R3,R4);
+	R1 = 3;
+	call MOD_0;
+	multipop(R0,R1,R2,R3,R4);
+	[DISK_STATUS_TABLE +1]=0;
+	[DISK_STATUS_TABLE +2]=R3;
+	[DISK_STATUS_TABLE +3]=R4;
+	load(R3,R4);
+	[PROCESS_TABLE + curr_pid*16 + 4]=WAIT_DISK;
+	multipush(R0,R1,R2,R3,R4);
+	call MOD_5;
+	multipop(R0,R1,R2,R3,R4);
+	
+	return ;
+endif;
+	
+
+//TERMINAL WRITE
+if(fun_no==3) then
+	multipush(R0,R1,R2,R3);
+	R1 = 8;
+	R2 =[SYSTEM_STATUS_TABLE+1];	
+	
+	call MOD_0;
+	
+	multipop(R0,R1,R2,R3);
+
+	print R3;
+
+	multipush(R0,R1,R2,R3);
+	
+	R1=9;
+	R2 =[SYSTEM_STATUS_TABLE+1];	
+
+	call MOD_0;
+	
+	multipop(R0,R1,R2,R3);
+	return;
+	
+endif;
+
+
+//TERMINAL READ
+if(fun_no == 4) then
+
+	 multipush(R0,R1,R2,R3);
+        R1 = 8;
+        R2 =[SYSTEM_STATUS_TABLE+1];
+
+        call MOD_0;
+
+        multipop(R0,R1,R2,R3);
+
+	read;
+	[PROCESS_TABLE + curr_pid*16 + 4]=WAIT_TERMINAL;
+	multipush(R0,R1,R2,R3);
+	call MOD_5;
+	multipop(R0,R1,R2,R3);
+	[[PTBR + (2*R3/512)]*512 + R3%512] = [PROCESS_TABLE + curr_pid*16 + 8];
+	return;
+endif;
+return;

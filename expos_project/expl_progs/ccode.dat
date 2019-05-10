@@ -1,0 +1,34 @@
+#include<bits/stdc++.h>
+
+using namespace std;
+typedef long long int ll;
+
+int main()
+{
+		ll t;
+		cin>>t;
+		while(t--)
+		{
+			ll n;
+			cin>>n;
+			ll arr[n+1];
+			for(ll i=1;i<=n;i++) cin>>arr[i];
+			ll p=1,d=1;
+			ll cnt=0;
+			for(ll i=p;i<=n && p<=n;)
+			{	
+				ll j=i;
+				for(;i<=p;i++)
+				{
+					cnt+=arr[i];
+				}
+				//p=p+arr[i];
+				if(cnt>= n-p) break;
+				p=p+arr[j];
+				
+				d++;
+			}
+			cout<<d<<endl;
+		}
+return 0;
+}

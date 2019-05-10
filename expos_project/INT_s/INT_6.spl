@@ -1,0 +1,132 @@
+alias pte R10;
+pte = PROCESS_TABLE + [SYSTEM_STATUS_TABLE+1]*16;
+[pte + 9]=7; 	//MODE FLAG
+
+alias user_sp R0;
+user_sp = SP;
+
+[pte + 13]=SP;
+SP=[pte + 11]*512 -1;
+
+alias file_desp R9;
+file_desp =   [[PTBR+ (2*(user_sp-4)/512)]*512 + (user_sp-4)%512];
+
+alias ret_val R8;
+ret_val = [PTBR + (2*(user_sp-1)/512)]*512 + (user_sp-1)%512;
+
+alias word R7;
+word = [[PTBR + (2*(user_sp-3)/512)]*512 +(user_sp-3)%512];
+
+
+if(file_desp ==-1) then			//TERMINAL READ
+	backup;
+	R1 = 4;
+	R2 = [SYSTEM_STATUS_TABLE +1];
+	R3= word;
+	call MOD_4;
+	restore;
+
+
+else 
+	if(file_desp<0 || file_desp >7) then	//INVALID FILE DESP
+		[ret_val]=-1;
+		[pte +9]=0;
+		SP=user_sp;
+		ireturn;
+	endif;
+
+	alias ppr R1;
+	ppr = [pte +11]*512 + 496;
+
+	if([ppr + 2*file_desp]!=0) then 	//not a file
+		[ret_val]=-1;
+		[pte +9]=0;
+		SP=user_sp;
+		ireturn;
+	endif;
+
+	alias oft_i R2;
+	oft_i =[ppr + 2*file_desp +1];
+
+	alias inod_i R3;
+	inod_i =[OPEN_FILE_TABLE + 4*oft_i];
+
+	multipush(R0,R1,R2,R3,R4,R5,R6,R7,R8,R9,R10);
+	R1=4;
+	R2=[SYSTEM_STATUS_TABLE+1];		//acquire inode
+	R3=inod_i;
+	call MOD_0;
+	R15=R0;
+	multipop(R0,R1,R2,R3,R4,R5,R6,R7,R8,R9,R10);
+
+	if(R15==-1) then	//acquire inod fails
+		[ret_val]=-1;
+		[pte +9]=0;
+		SP=user_sp;
+		ireturn;
+	endif;
+
+	alias l_seek R4;
+	l_seek = [OPEN_FILE_TABLE + 4*oft_i + 2];
+
+	if(inod_i==0) then	//root
+			if(l_seek==480) then	//seek=size
+				backup;	
+				R1=5;
+				R2=[SYSTEM_STATUS_TABLE+1];		//release inode
+				R3=inod_i;
+				call MOD_0;
+				restore;
+
+				[ret_val]=-2;
+				[pte +9]=0;
+				SP=user_sp;
+				ireturn;
+			endif;
+
+			[[PTBR + 2*(word/512)]*512 + word%512]=[ROOT_FILE + l_seek];	//reading from root
+			[OPEN_FILE_TABLE + 4*oft_i + 2]=[OPEN_FILE_TABLE + 4*oft_i + 2]+1;
+	else
+			if(l_seek== [INODE_TABLE + inod_i*16 + 2]) then	//seek=size
+				backup;	
+				R1=5;
+				R2=[SYSTEM_STATUS_TABLE+1];		//release inode
+				R3=inod_i;
+				call MOD_0;
+				restore;
+
+				[ret_val]=-2;
+				[pte +9]=0;
+				SP=user_sp;
+				ireturn;
+			endif;
+
+			alias block_num R5;
+			alias off_set R6;
+			block_num =[INODE_TABLE + 16*inod_i + 8 + (l_seek/512)];
+			off_set = l_seek%512;
+
+			backup; 		//buffered read
+			R1=2;
+			R2=[SYSTEM_STATUS_TABLE+1];
+			R3=block_num;
+			R4=off_set;
+			R5=word;
+			call MOD_3;
+			restore;
+
+			[OPEN_FILE_TABLE + 4*oft_i + 2]=[OPEN_FILE_TABLE + 4*oft_i + 2]+1;
+	endif;
+
+	backup;	
+	R1=5;
+	R2=[SYSTEM_STATUS_TABLE+1];		//release inode
+	R3=inod_i;
+	call MOD_0;
+	restore;
+endif;
+
+[pte +9]=0;
+[ret_val]=0;
+SP=user_sp;
+ireturn;

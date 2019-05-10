@@ -1,0 +1,18 @@
+int main()
+{
+	decl
+		int temp,fileD;
+		str s,fileName;
+	enddecl
+	begin
+		read(fileName);
+		fileD= exposcall("Open",fileName);
+		temp=exposcall("Read",fileD,s);
+		while(temp!=2) do
+			write(s);
+			temp=exposcall("Read",fileD,s);	
+		endwhile;
+		temp=exposcall("Close",fileD);
+		return 0;
+	end
+}
